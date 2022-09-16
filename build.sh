@@ -8,5 +8,5 @@ cd ../..
 cc hexembed.c -o bin/hexembed
 bin/hexembed embed.lua > embed.h
 
-cc main.c -O2 -march=native -lm -ldl -Wl,--export-dynamic luajit/src/libluajit.a -o bin/truct
+cc main.c -I luajit/src -O2 -march=native -lm -ldl -Wl,--export-dynamic luajit/src/libluajit.a -o bin/truct
 echo Done!
