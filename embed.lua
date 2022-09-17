@@ -3,7 +3,6 @@ local ffi = require("ffi")
 local C = ffi.C
 
 ffi.cdef[[
-const char* truct__argv0(void);
 int truct__is_optimized(void);
 uint64_t truct__get_file_write_time(const char* filename);
 uint32_t truct__hash_file(const char* filename);
@@ -16,8 +15,6 @@ build = {}
 if compile_dir == nil then
     compile_dir = ""
 end
-
-truct_path = tostring(C.truct__argv0())
 
 config = {
     ["os"] = ffi.os,

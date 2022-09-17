@@ -39,10 +39,6 @@ static uint64_t get_nanos(void) {
     return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
 }
 
-LUA_EXPORT const char* truct__argv0(void) {
-    return is_optimized;
-}
-
 LUA_EXPORT int truct__is_optimized(void) {
     return is_optimized;
 }
