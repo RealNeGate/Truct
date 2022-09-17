@@ -8,13 +8,12 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#else
-#include <sys/stat.h>
 #endif
 
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
+#include <sys/stat.h>
+#include "luajit/lua.h"
+#include "luajit/lualib.h"
+#include "luajit/lauxlib.h"
 
 #include "embed.h"
 
@@ -77,21 +76,31 @@ LUA_EXPORT uint32_t truct__hash_file(const char* filename) {
         return 0;
     }
 
+    int descriptor = fileno(file);
+    struct stat file_stats;
+    if (fstat(descriptor, &file_stats) == -1) {
+        fprintf(stderr, "Could not figure out file size: %s\n", path);
+        return 0;
+    }
+
+    size_t done = 0;
+    size_t length = file_stats.st_size;
     uint32_t hash = 0x811C9DC5;
-    for (;;) {
-        size_t bytes_read = fread(temporary_buffer, 1, TEMPORARY_BUFFER_SIZE, file);
+    while (done < length) {
+        // chunk off some juicy bits
+        size_t amount = length - done;
+        if (amount > TEMPORARY_BUFFER_SIZE) amount = TEMPORARY_BUFFER_SIZE;
+
+        fread(temporary_buffer, 1, amount, file);
+        done += amount;
 
         // FNV1A
-        for (size_t i = 0; i < bytes_read; i++) {
+        for (size_t i = 0; i < amount; i++) {
             hash = (temporary_buffer[i] ^ hash) * 0x01000193;
         }
-
-        // we had a partial read... leave
-        if (bytes_read < TEMPORARY_BUFFER_SIZE) {
-            fclose(file);
-            return hash;
-        }
     }
+
+    return hash;
 }
 
 LUA_EXPORT void truct__embed_file(const char* input, const char* output) {
@@ -109,7 +118,7 @@ LUA_EXPORT void truct__embed_file(const char* input, const char* output) {
 
     fread(b, fsize, 1, fp);
     fclose(fp);
-    
+
     FILE* out = fopen(output, "wb");
     fprintf(out, "enum { FILE_SIZE = %d };\n", fsize);
     fprintf(out, "static const unsigned char FILE_DATA[] = {\n");
@@ -129,7 +138,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "No memory?\n");
         return 1;
     }
-    
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-O") == 0) {
             is_optimized = 1;
@@ -139,18 +148,18 @@ int main(int argc, char** argv) {
 
     printf("~~~~~~~~\n");
     uint64_t start = get_nanos();
-    
+
     lua_State* L = lua_open();
     luaL_openlibs(L);
 
-    int ret = luaL_loadbuffer(L, (const char*) FILE_DATA, FILE_SIZE, "embed.lua");
-    //int ret = luaL_loadfile(L, "W:\\External\\truct\\embed.lua");
+    //int ret = luaL_loadbuffer(L, (const char*) FILE_DATA, FILE_SIZE, "embed.lua");
+    int ret = luaL_loadfile(L, "W:\\External\\truct\\embed.lua");
     if (ret != 0) {
         fprintf(stderr, "Lua runtime exited with %d\n", ret);
-        
+
         const char* str = lua_tostring(L, -1);
-        luaL_traceback(L,  L, str, 1);
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+        luaL_traceback(L,  L, str, 4);
+        fprintf(stderr, "%s\n", lua_tostring(L, -1));
         return 1;
     }
 
@@ -158,25 +167,25 @@ int main(int argc, char** argv) {
     ret = lua_pcall(L, 0, 0, 0);
     if (ret != 0) {
         fprintf(stderr, "Lua runtime exited with %d\n", ret);
-        
+
         const char* str = lua_tostring(L, -1);
-        luaL_traceback(L,  L, str, 1);
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+        luaL_traceback(L,  L, str, 4);
+        fprintf(stderr, "%s\n", lua_tostring(L, -1));
         return 1;
     }
 
     ret = luaL_dofile(L, "build.lua");
     if(ret != 0) {
         fprintf(stderr, "Lua runtime exited with %d\n", ret);
-        
+
         const char* str = lua_tostring(L, -1);
-        luaL_traceback(L,  L, str, 1);
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+        luaL_traceback(L, L, str, 4);
+        fprintf(stderr, "%s\n", lua_tostring(L, -1));
         return 1;
     }
 
     lua_close(L);
-    
+
     uint64_t end = get_nanos();
     printf("> Compiled in %f seconds\n", (end - start) / 1000000000.0);
     return 0;
