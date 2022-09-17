@@ -295,7 +295,7 @@ function build.mkdir(path)
 end
 
 function build.append(a, b)
-    for k,v in pairs(b) do a[k] = v end
+    for k,v in pairs(b) do table.insert(a, v) end
 end
 
 function build.format(str, filepath)
