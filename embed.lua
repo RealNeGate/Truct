@@ -17,7 +17,7 @@ if compile_dir == nil then
     compile_dir = ""
 end
 
-truct_path = tostring(truct__argv0())
+truct_path = tostring(C.truct__argv0())
 
 config = {
     ["os"] = ffi.os,
