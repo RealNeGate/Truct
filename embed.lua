@@ -18,6 +18,7 @@ end
 
 config = {
     ["os"] = ffi.os,
+    ["arch"] = ffi.arch,
     ["opt"] = (C.truct__is_optimized() ~= 0)
 }
 
@@ -248,7 +249,6 @@ function build.expand_paths(files)
         local pattern = get_file_name(f).."$"
         pattern = pattern:gsub("%.", "%%.")
         pattern = pattern:gsub("%*", ".*")
-        -- print(f.." -> "..pattern)
 
         if ffi.os == "Windows" then
             local dir = string.gsub(get_directory(compile_dir..f), "/", "\\")
@@ -263,11 +263,11 @@ function build.expand_paths(files)
 
             proc:close()
         else
-            local proc = io.popen("find "..get_directory(compile_dir..f).." -maxdepth 0")
+            local proc = io.popen("find "..get_directory(compile_dir..f).." -maxdepth 1")
 
             for l in proc:lines() do
                 if string.match(l, pattern) then
-                    table.insert(new_files, dir..l)
+                    table.insert(new_files, l)
                 end
             end
 
@@ -321,7 +321,7 @@ function build.foreach_chain(inputs, command, output_pattern)
 
         if has_file_changed(f, cmd) then
             -- if it's a CC command we can use -MMD
-            if cmd:starts("cc") or cmd:starts("clang") or cmd:starts("gcc") then
+            if ends_with(f, ".c") then
                 cmd = cmd.." -MMD -MF "..output..".d"
                 table.insert(cc_files, f)
             end
@@ -459,7 +459,6 @@ function build.done()
             -- garbage collect
             print("GCed "..input)
             
-            build.del(input)
             build.database[input] = nil
         else
             -- clear changed field from database entries
