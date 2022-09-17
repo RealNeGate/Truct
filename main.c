@@ -11,14 +11,17 @@
 #endif
 
 #include <sys/stat.h>
-#include "luajit/lua.h"
-#include "luajit/lualib.h"
-#include "luajit/lauxlib.h"
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 #include "embed.h"
 
 #ifdef _MSC_VER
 #define stat _stat64
+#define fstat _fstat
+#define fileno _fileno
+
 #define LUA_EXPORT __declspec(dllexport)
 #else
 #define LUA_EXPORT
@@ -79,7 +82,7 @@ LUA_EXPORT uint32_t truct__hash_file(const char* filename) {
     int descriptor = fileno(file);
     struct stat file_stats;
     if (fstat(descriptor, &file_stats) == -1) {
-        fprintf(stderr, "Could not figure out file size: %s\n", path);
+        fprintf(stderr, "Could not figure out file size: %s\n", filename);
         return 0;
     }
 
@@ -152,8 +155,8 @@ int main(int argc, char** argv) {
     lua_State* L = lua_open();
     luaL_openlibs(L);
 
-    //int ret = luaL_loadbuffer(L, (const char*) FILE_DATA, FILE_SIZE, "embed.lua");
-    int ret = luaL_loadfile(L, "W:\\External\\truct\\embed.lua");
+    int ret = luaL_loadbuffer(L, (const char*) FILE_DATA, FILE_SIZE, "embed.lua");
+    //int ret = luaL_loadfile(L, "W:\\External\\truct\\embed.lua");
     if (ret != 0) {
         fprintf(stderr, "Lua runtime exited with %d\n", ret);
 

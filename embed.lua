@@ -291,6 +291,10 @@ function command_with_cd(cmd)
     end
 end
 
+function build.command(cmd)
+    os.execute(command_with_cd(cmd))
+end
+
 function build.del(path)
     if ffi.os == "Windows" then
         os.execute(command_with_cd("del "..path:gsub("/", "\\")))
