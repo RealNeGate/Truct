@@ -3,6 +3,7 @@ local ffi = require("ffi")
 local C = ffi.C
 
 ffi.cdef[[
+const char* truct__argv0(void);
 int truct__is_optimized(void);
 uint64_t truct__get_file_write_time(const char* filename);
 uint32_t truct__hash_file(const char* filename);
@@ -15,6 +16,8 @@ build = {}
 if compile_dir == nil then
     compile_dir = ""
 end
+
+truct_path = tostring(truct__argv0())
 
 config = {
     ["os"] = ffi.os,
@@ -160,43 +163,6 @@ function get_deps_from_dfile(self, input)
     return deps
 end
 
-function expand_paths(files)
-    new_files = {}
-    for i,f in ipairs(files) do
-        -- read files in directory
-        local pattern = get_file_name(f).."$"
-        pattern = pattern:gsub("%.", "%%.")
-        pattern = pattern:gsub("%*", ".*")
-        -- print(f.." -> "..pattern)
-
-        if ffi.os == "Windows" then
-            local dir = string.gsub(get_directory(compile_dir..f), "/", "\\")
-
-            local proc = io.popen("dir /B "..dir)
-            for l in proc:lines() do
-                if string.match(l, pattern) then
-                    local path = string.gsub(dir..l, "\\", "/")
-                    table.insert(new_files, path)
-                end
-            end
-
-            proc:close()
-        else
-            local proc = io.popen("find "..get_directory(compile_dir..f).." -maxdepth 0")
-
-            for l in proc:lines() do
-                if string.match(l, pattern) then
-                    table.insert(new_files, dir..l)
-                end
-            end
-
-            proc:close()
-        end
-    end
-
-    return new_files
-end
-
 function has_file_changed(input, command)
     -- we need to at least have it in the database
     local old = build.database[input]
@@ -246,23 +212,6 @@ function has_file_changed(input, command)
     return false
 end
 
-function build.build_lua(directory)
-    local dep = loadfile(directory.."/build.lua")
-    assert(dep)
-
-    local old = compile_dir
-    compile_dir = (directory.."/"):gsub("\\", "/")
-    local changes = dep()
-    compile_dir = old
-
-    if changes == nil then
-        print("Failed to compile "..directory)
-        os.exit(1)
-    end
-
-    return changes
-end
-
 build.database = {}
 
 -- stores what intermediate files map to what source files
@@ -295,6 +244,43 @@ function build.command(cmd)
     os.execute(command_with_cd(cmd))
 end
 
+function build.expand_paths(files)
+    new_files = {}
+    for i,f in ipairs(files) do
+        -- read files in directory
+        local pattern = get_file_name(f).."$"
+        pattern = pattern:gsub("%.", "%%.")
+        pattern = pattern:gsub("%*", ".*")
+        -- print(f.." -> "..pattern)
+
+        if ffi.os == "Windows" then
+            local dir = string.gsub(get_directory(compile_dir..f), "/", "\\")
+
+            local proc = io.popen("dir /B "..dir)
+            for l in proc:lines() do
+                if string.match(l, pattern) then
+                    local path = string.gsub(dir..l, "\\", "/")
+                    table.insert(new_files, path)
+                end
+            end
+
+            proc:close()
+        else
+            local proc = io.popen("find "..get_directory(compile_dir..f).." -maxdepth 0")
+
+            for l in proc:lines() do
+                if string.match(l, pattern) then
+                    table.insert(new_files, dir..l)
+                end
+            end
+
+            proc:close()
+        end
+    end
+
+    return new_files
+end
+
 function build.del(path)
     if ffi.os == "Windows" then
         os.execute(command_with_cd("del "..path:gsub("/", "\\")))
@@ -311,6 +297,10 @@ function build.mkdir(path)
     end
 end
 
+function build.append(a, b)
+    for k,v in pairs(b) do a[k] = v end
+end
+
 function build.format(str, filepath)
     -- print(debug.traceback())
     return str:gsub("%%f", filepath):gsub("%%F", get_file_name(filepath))
@@ -319,7 +309,7 @@ end
 -- runs the separate inputs on different processes
 function build.foreach_chain(inputs, command, output_pattern)
     -- fixup any directory queries
-    local resolved_inputs = expand_paths(inputs)
+    local resolved_inputs = build.expand_paths(inputs)
 
     -- check for changes
     local changed_files = {}
@@ -398,7 +388,7 @@ end
 
 function build.chain(inputs, command, output)
     -- fixup any directory queries
-    local resolved_inputs = expand_paths(inputs)
+    local resolved_inputs = build.expand_paths(inputs)
     local input_str = table.concat(resolved_inputs, ' ')
     local cmd = command:gsub("%%i", input_str):gsub("%%o", output)
 
