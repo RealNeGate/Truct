@@ -312,6 +312,7 @@ function build.mkdir(path)
 end
 
 function build.format(str, filepath)
+    -- print(debug.traceback())
     return str:gsub("%%f", filepath):gsub("%%F", get_file_name(filepath))
 end
 
@@ -450,14 +451,14 @@ function build.chain(inputs, command, output)
 end
 
 function build.ld_chain(inputs, flags, output)
-    build.chain(inputs, "clang %i "..flags.." -o %o", output)
+    return build.chain(inputs, "clang %i "..flags.." -o %o", output)
 end
 
 function build.ar_chain(inputs, output)
     if ffi.os == "Windows" then
-        build.chain(inputs, "lib /nologo /out:%o %i", output)
+        return build.chain(inputs, "lib /nologo /out:%o %i", output)
     else
-        build.chain(inputs, "ar -rcs %o %i", output)
+        return build.chain(inputs, "ar -rcs %o %i", output)
     end
 end
 

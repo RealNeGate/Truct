@@ -18,9 +18,9 @@
 #include "embed.h"
 
 #ifdef _MSC_VER
-#define stat _stat64
-#define fstat _fstat
 #define fileno _fileno
+#define fstat _fstat
+#define stat _stat
 
 #define LUA_EXPORT __declspec(dllexport)
 #else
@@ -102,7 +102,6 @@ LUA_EXPORT uint32_t truct__hash_file(const char* filename) {
             hash = (temporary_buffer[i] ^ hash) * 0x01000193;
         }
     }
-
     return hash;
 }
 
