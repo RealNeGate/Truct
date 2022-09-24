@@ -327,8 +327,8 @@ function build.foreach_chain(inputs, command, output_pattern)
     local cc_files = {}
     local outputs = {}
     for i,f in ipairs(resolved_inputs) do
-        local cmd = build.format(command, f)
         local output = build.format(output_pattern, f)
+        local cmd = build.format(command, f):gsub("%%F", output)
 
         if has_file_changed(f, cmd) then
             -- if it's a CC command we can use -MMD
