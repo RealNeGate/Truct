@@ -171,11 +171,22 @@ function has_file_changed(input, command)
     end
 
     old.mark = true
+    for k,v in pairs(old.deps) do
+        local old_dep = build.database[v]
+        if old_dep == nil then
+            add_database(v, nil)
+            build.database[v].mark = true
+        else
+            old_dep.mark = true
+        end
+    end
+    
     if old.changed then
         return true
     end
 
     if command ~= nil and old.command ~= command then
+        old.command = command
         old.changed = true
         return true
     end
