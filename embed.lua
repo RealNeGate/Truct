@@ -161,7 +161,27 @@ function get_deps_from_dfile(self, input)
     return deps
 end
 
-function has_file_changed(input, command)
+build.database = {}
+
+-- stores what intermediate files map to what source files
+intermediate_database = {}
+
+-- Try to load from cache
+local cache = loadfile("my.cache")
+if cache ~= nil then
+    print("Loading from the cache...")
+    local result = cache()
+
+    -- Diff the config (if it changed we don't use the old database)
+    local new_config = result.config
+    if not simple_table_match(config, new_config) then
+        print("Configuration changed!")
+    else
+        build.database = result.database
+    end
+end
+
+function build.has_file_changed(input, command)
     -- we need to at least have it in the database
     local old = build.database[input]
     if old == nil then
@@ -193,7 +213,7 @@ function has_file_changed(input, command)
 
     -- check dependencies
     for k,v in pairs(old.deps) do
-        if has_file_changed(v, nil) then
+        if build.has_file_changed(v, nil) then
             -- print(input..": dependency changed ("..v..")")
             old.changed = true
             return true
@@ -219,26 +239,6 @@ function has_file_changed(input, command)
     end
 
     return false
-end
-
-build.database = {}
-
--- stores what intermediate files map to what source files
-intermediate_database = {}
-
--- Try to load from cache
-local cache = loadfile("my.cache")
-if cache ~= nil then
-    print("Loading from the cache...")
-    local result = cache()
-
-    -- Diff the config (if it changed we don't use the old database)
-    local new_config = result.config
-    if not simple_table_match(config, new_config) then
-        print("Configuration changed!")
-    else
-        build.database = result.database
-    end
 end
 
 function command_with_cd(cmd)
@@ -316,6 +316,10 @@ end
 
 -- runs the separate inputs on different processes
 function build.foreach_chain(inputs, command, output_pattern)
+    if type(inputs) == "string" then
+        inputs = { inputs }
+    end
+    
     -- fixup any directory queries
     local resolved_inputs = build.expand_paths(inputs)
 
@@ -330,7 +334,7 @@ function build.foreach_chain(inputs, command, output_pattern)
         local output = build.format(output_pattern, f)
         local cmd = build.format(command, f):gsub("%%o", output)
 
-        if has_file_changed(f, cmd) then
+        if build.has_file_changed(f, cmd) then
             -- if it's a CC command we can use -MMD
             if ends_with(f, ".c") then
                 cmd = cmd.." -MMD -MF "..output..".d"
@@ -395,6 +399,10 @@ function build.foreach_chain(inputs, command, output_pattern)
 end
 
 function build.chain(inputs, command, output)
+    if type(inputs) == "string" then
+        inputs = { inputs }
+    end
+    
     -- fixup any directory queries
     local resolved_inputs = build.expand_paths(inputs)
     local input_str = table.concat(resolved_inputs, ' ')
@@ -425,7 +433,7 @@ function build.chain(inputs, command, output)
             changes = true
         else
             for i,f in ipairs(source_inputs) do
-                if has_file_changed(f, nil) then
+                if build.has_file_changed(f, nil) then
                     print("CHANGED "..f)
                     changes = true
                 end
